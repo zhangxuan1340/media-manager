@@ -1,29 +1,23 @@
 # 编译输出
 build/
 
-# 日志文件
-logs/
-*.log
-
 # 配置文件
 config/config.json
 config/media-manager.lock
 
-# IDE和编辑器文件
-.vscode/
-.idea/
-*.swp
-*.swo
+# 日志文件
+logs/
 
 # 操作系统文件
 .DS_Store
-Thumbs.db
+*.swp
+*.swo
 
-# 依赖文件
-vendor/
-Gopkg.lock
-
-# 临时文件
-*.tmp
-*.temp
-/tmp/
+# IDE文件
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
