@@ -56,7 +56,7 @@
 ### 配置文件结构
 
 配置文件位于以下位置之一（优先级从高到低）：
-1. 程序当前目录下的 `config/config.json`
+1. 当前执行目录下的 `config/config.json`
 2. 程序执行文件所在目录下的 `config/config.json`
 3. 用户主目录下的 `.media-manager/config.json`
 
