@@ -11,19 +11,19 @@ import (
 	"github.com/user/media-manager/utils"
 )
 
-// ProcessGenre检查并翻译NFO文件中的genre字段
-func ProcessGenre(filePath string) error {
+// ProcessGenre检查并翻译NFO文件中的genre字段，返回是否修改了文件
+func ProcessGenre(filePath string) (bool, error) {
 	// 解析NFO文件
 	nfo, err := parser.ParseNFO(filePath)
 	if err != nil {
-		return fmt.Errorf("处理genre时解析NFO文件失败: %w", err)
+		return false, fmt.Errorf("处理genre时解析NFO文件失败: %w", err)
 	}
 
 	// 如果没有类型字段，返回错误
 	if len(nfo.Genres) == 0 {
 		logging.Warning("NFO文件中没有找到类型字段: %s", filePath)
 		// 不返回错误，继续处理其他字段
-		return nil
+		return false, nil
 	}
 
 	// 检查并翻译每个genre
@@ -42,14 +42,14 @@ func ProcessGenre(filePath string) error {
 	// 如果有变化，更新NFO文件
 	if hasChanges {
 		if err := updateGenreInFile(filePath, nfo.Genres); err != nil {
-			return fmt.Errorf("更新genre字段失败: %w", err)
+			return false, fmt.Errorf("更新genre字段失败: %w", err)
 		}
 		logging.Info("已更新NFO文件中的genre字段: %s", filePath)
 	} else {
 		logging.Info("NFO文件中的genre字段已经是简体中文: %s", filePath)
 	}
 
-	return nil
+	return hasChanges, nil
 }
 
 // updateGenreInFile更新NFO文件中的genre字段

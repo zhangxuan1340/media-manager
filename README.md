@@ -91,9 +91,11 @@
 ```
 Usage:
   -config
-        查看或修改配置
+        查看或修改配置（当程序目录存在config目录时，会生成基础配置文件）
   -dir string
         指定影片目录路径
+  -detect-missing
+        检测数据库中所有电视剧的缺失季和剧集
   -nfo string
         指定NFO文件路径
   -scrape-all
@@ -134,6 +136,11 @@ Usage:
 6. **执行所有元数据刮削**：
    ```bash
    ./media-manager -scrape-all
+   ```
+
+7. **批量检测缺失季和剧集**：
+   ```bash
+   ./media-manager -detect-missing
    ```
 
 ## 编译步骤

@@ -10,6 +10,7 @@ import (
 
 	"github.com/user/media-manager/classifier"
 	"github.com/user/media-manager/config"
+	"github.com/user/media-manager/database"
 	"github.com/user/media-manager/logging"
 	"github.com/user/media-manager/processor"
 	"github.com/user/media-manager/scraper"
@@ -23,6 +24,7 @@ var (
 	scrapeTV     = flag.Bool("scrape-tv", false, "执行电视剧刮削")
 	scrapeAll    = flag.Bool("scrape-all", false, "执行所有刮削")
 	configCmd    = flag.Bool("config", false, "查看或修改配置")
+	detectCmd    = flag.Bool("detect-missing", false, "检测数据库中所有电视剧的缺失季和剧集")
 )
 
 // main是应用程序的入口点
@@ -43,6 +45,13 @@ func main() {
 	if *configCmd {
 		logging.Info("处理配置命令")
 		showConfig()
+		os.Exit(0)
+	}
+
+	// 处理批量检测缺失季和剧集命令
+	if *detectCmd {
+		logging.Info("处理批量检测缺失季和剧集命令")
+		batchDetectMissing()
 		os.Exit(0)
 	}
 
@@ -83,6 +92,9 @@ func showConfig() {
 	for i, tempDir := range cfg.TempDirs {
 		fmt.Printf("  %d. %s\n", i+1, tempDir)
 	}
+	fmt.Printf("TMDB API密钥: %s\n", cfg.TMDBApiKey)
+	fmt.Printf("刮削后等待时间(秒): %d\n", cfg.WaitTimeAfterScan)
+	fmt.Printf("NFO编辑后等待时间(秒): %d\n", cfg.WaitTimeAfterNFOEdit)
 }
 
 // handleScrape处理刮削命令
@@ -203,7 +215,8 @@ func handleScrape() {
 		logging.Info("开始处理NFO文件: %s", nfoFile)
 
 		// 处理类型字段
-		if err := processor.ProcessGenre(nfoFile); err != nil {
+		genreModified, err := processor.ProcessGenre(nfoFile)
+		if err != nil {
 			logging.Error("处理类型字段失败: %v", err)
 			continue
 		}
@@ -219,8 +232,8 @@ func handleScrape() {
 			logging.Info("发现 %d 个非中文演员名称", len(report.Actors))
 		}
 
-		// NFO文件编辑完成后等待指定时间
-		if cfg.WaitTimeAfterNFOEdit > 0 {
+		// 只有当NFO文件被修改时才等待指定时间
+		if cfg.WaitTimeAfterNFOEdit > 0 && genreModified {
 			logging.Info("NFO文件编辑完成，等待 %d 秒后开始移动文件...", cfg.WaitTimeAfterNFOEdit)
 			time.Sleep(time.Duration(cfg.WaitTimeAfterNFOEdit) * time.Second)
 		}
@@ -257,7 +270,8 @@ func handleSingleNFO(nfoPath string) {
 
 	// 处理类型字段
 	logging.Info("开始处理NFO文件: %s", nfoPath)
-	if err := processor.ProcessGenre(nfoPath); err != nil {
+	genreModified, err := processor.ProcessGenre(nfoPath)
+	if err != nil {
 		logging.Error("处理类型字段失败: %v", err)
 		os.Exit(1)
 	}
@@ -275,8 +289,8 @@ func handleSingleNFO(nfoPath string) {
 
 	// 加载配置获取等待时间
 	cfg := config.LoadConfig()
-	// NFO文件编辑完成后等待指定时间
-	if cfg.WaitTimeAfterNFOEdit > 0 {
+	// 只有当NFO文件被修改时才等待指定时间
+	if cfg.WaitTimeAfterNFOEdit > 0 && genreModified {
 		logging.Info("NFO文件编辑完成，等待 %d 秒后开始移动文件...", cfg.WaitTimeAfterNFOEdit)
 		time.Sleep(time.Duration(cfg.WaitTimeAfterNFOEdit) * time.Second)
 	}
@@ -514,4 +528,54 @@ func findNFOFiles(dirPath string) ([]string, error) {
 
 	logging.Info("在目录 %s 中找到 %d 个NFO文件（每个目录一个）", dirPath, len(nfoFiles))
 	return nfoFiles, nil
+}
+
+// batchDetectMissing 批量检测数据库中所有电视剧的缺失季和剧集
+func batchDetectMissing() {
+	// 初始化数据库
+	database.InitDatabase()
+	defer database.CloseDatabase()
+
+	// 获取所有媒体记录
+	mediaRecords, err := database.GetMediaRecords(map[string]interface{}{})
+	if err != nil {
+		logging.Error("获取媒体记录失败: %v", err)
+		return
+	}
+
+	logging.Info("共找到 %d 条媒体记录，开始检测缺失季和剧集...", len(mediaRecords))
+
+	// 筛选出电视剧记录并检测缺失季和剧集
+	tvShowCount := 0
+	detectedCount := 0
+	errCount := 0
+
+	for _, record := range mediaRecords {
+		// 检查是否为电视剧（根据Category字段包含"Show"）
+		if strings.Contains(record.Category, "Show") {
+			tvShowCount++
+
+			// 只处理有TMDB ID的记录
+			if record.TMDbID != "" {
+				logging.Info("检测 '%s' 的缺失季和剧集...", record.Title)
+				if err := classifier.DetectMissingSeasonsAndEpisodes(&record); err != nil {
+					logging.Error("检测 '%s' 的缺失季和剧集失败: %v", record.Title, err)
+					errCount++
+				} else {
+					logging.Info("成功检测 '%s' 的缺失季和剧集", record.Title)
+					detectedCount++
+				}
+			} else {
+				logging.Warning("跳过 '%s'，没有TMDB ID", record.Title)
+				errCount++
+			}
+		}
+	}
+
+	logging.Info("批量检测完成！")
+	logging.Info("总媒体记录数: %d", len(mediaRecords))
+	logging.Info("电视剧记录数: %d", tvShowCount)
+	logging.Info("成功检测数: %d", detectedCount)
+	logging.Info("失败检测数: %d", errCount)
+	logging.Info("检测结果已保存到数据库中")
 }

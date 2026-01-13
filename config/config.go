@@ -19,6 +19,7 @@ type Config struct {
 	TinyMediaManagerDir  string   `json:"tiny_media_manager_dir"`
 	TempDirs             []string `json:"temp_dir"`
 	TMDBApiKey           string   `json:"tmdb_api_key"`             // TMDB API密钥
+	UseTMDBOrg           bool     `json:"use_tmdb_org"`             // 是否使用tmdb.org访问API
 	WaitTimeAfterScan    int      `json:"wait_time_after_scan"`     // 扫描后等待时间（秒）
 	WaitTimeAfterNFOEdit int      `json:"wait_time_after_nfo_edit"` // NFO文件编辑后等待时间（秒）
 }
@@ -70,6 +71,8 @@ type configWithFlexibleTemp struct {
 	CloudDir             string          `json:"cloud_dir"`
 	TinyMediaManagerDir  string          `json:"tiny_media_manager_dir"`
 	TempDir              json.RawMessage `json:"temp_dir"`
+	TMDBApiKey           string          `json:"tmdb_api_key"`
+	UseTMDBOrg           bool            `json:"use_tmdb_org"`
 	WaitTimeAfterScan    int             `json:"wait_time_after_scan"`
 	WaitTimeAfterNFOEdit int             `json:"wait_time_after_nfo_edit"`
 }
@@ -106,6 +109,8 @@ func LoadConfig() *Config {
 	var config Config
 	config.CloudDir = tempConfig.CloudDir
 	config.TinyMediaManagerDir = tempConfig.TinyMediaManagerDir
+	config.TMDBApiKey = tempConfig.TMDBApiKey
+	config.UseTMDBOrg = tempConfig.UseTMDBOrg
 	config.WaitTimeAfterScan = tempConfig.WaitTimeAfterScan
 	config.WaitTimeAfterNFOEdit = tempConfig.WaitTimeAfterNFOEdit
 
@@ -145,18 +150,12 @@ func LoadConfig() *Config {
 		validTempDirs = append(validTempDirs, expandedTempDir)
 	}
 
-	// 如果没有有效Temp目录，使用默认目录
+	// 如果没有有效Temp目录，使用空切片
 	if len(validTempDirs) == 0 {
-		defaultTempDir := expandHomePath(DefaultTemp)
-		fmt.Printf("没有找到有效Temp目录，将使用默认目录: %s\n", defaultTempDir)
-
-		// 创建默认Temp目录
-		if err := os.MkdirAll(defaultTempDir, 0755); err != nil {
-			fmt.Printf("无法创建默认Temp目录: %v\n", err)
-			os.Exit(1)
-		}
-
-		validTempDirs = []string{defaultTempDir}
+		fmt.Printf("警告: 没有找到有效Temp目录\n")
+		// 不创建默认目录，返回空切片
+		// 这确保了即使没有Temp目录，程序也能继续运行
+		validTempDirs = []string{}
 	}
 
 	config.TempDirs = validTempDirs
@@ -196,7 +195,7 @@ func createDefaultConfig() *Config {
 	tmmDir := DefaultTMMDir
 	switch runtime.GOOS {
 	case "windows":
-		tmmDir = "C:\\Program Files\\tinyMediaManager"
+		tmmDir = "C:/Program Files/tinyMediaManager"
 		// 其他Windows特定的设置
 	case "darwin":
 		tmmDir = "/Applications/tinyMediaManager.app/Contents/MacOS"
@@ -207,9 +206,10 @@ func createDefaultConfig() *Config {
 		CloudDir:             DefaultCloud,
 		TinyMediaManagerDir:  tmmDir,
 		TempDirs:             []string{DefaultTemp},
-		TMDBApiKey:           "", // 默认为空，需要用户手动配置
-		WaitTimeAfterScan:    30, // 默认等待时间30秒
-		WaitTimeAfterNFOEdit: 10, // 默认NFO文件编辑后等待时间10秒
+		TMDBApiKey:           "",    // 默认为空，需要用户手动配置
+		UseTMDBOrg:           false, // 默认不使用tmdb.org
+		WaitTimeAfterScan:    30,    // 默认等待时间30秒
+		WaitTimeAfterNFOEdit: 10,    // 默认NFO文件编辑后等待时间10秒
 	}
 }
 
