@@ -8,6 +8,9 @@ config/media-manager.lock
 # 日志文件
 logs/
 
+# 数据库文件
+data/
+
 # 操作系统文件
 .DS_Store
 *.swp
