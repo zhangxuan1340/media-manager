@@ -1,6 +1,9 @@
 # 编译输出
 build/
 
+# 文档目录
+doc/
+
 # 配置文件
 config/config.json
 config/media-manager.lock
