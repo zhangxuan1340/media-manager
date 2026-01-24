@@ -64,12 +64,12 @@
 
 ```json
 {
-  "cloud_dir": "~/Cloud",
-  "tiny_media_manager_dir": "/vol1/1000/config/tinymediaManager",
-  "temp_dir": "~/Temp",
-  "tmdb_api_key": "your_tmdb_api_key",
-  "wait_time_after_scan": 30,
-  "wait_time_after_nfo_edit": 10
+  "cloud_dir": "~/Cloud", # 云存储目录路径，处理后的媒体文件会被移动到这里
+  "tiny_media_manager_dir": "/vol1/1000/config/tinymediaManager", # TinyMediaManager的安装目录
+  "temp_dir": "~/Temp", # 临时目录路径，用于存储中间文件,可以多个目录
+  "tmdb_api_key": "your_tmdb_api_key", # TMDB API密钥，用于获取元数据
+  "wait_time_after_scan": 30, # 扫描后等待时间（秒），确保所有文件都已准备好
+  "wait_time_after_nfo_edit": 10 # NFO文件编辑后等待时间（秒），确保文件写入完成
 }
 ```
 

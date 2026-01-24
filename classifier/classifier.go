@@ -151,6 +151,69 @@ func ClassifyAndMove(nfoPath string) error {
 
 	// 检查目标目录是否已存在同名文件夹
 	targetMediaPath := filepath.Join(targetDir, mediaName)
+
+	// 从文件名中提取分辨率信息 - 在移动前处理
+	resolution := extractResolutionFromFileName(filepath.Base(nfoPath))
+
+	// 对于电视剧合并季数的情况，需要先获取现有记录 - 在移动前处理
+	var mediaRecord *database.MediaRecord
+
+	// 尝试获取现有媒体记录 - 在移动前处理
+	if isTVShow {
+		var err error
+		mediaRecord, err = getExistingTVShowRecord(nfo.Title, nfo.Year)
+		if err != nil {
+			logging.Error("获取现有电视剧记录失败: %v", err)
+		}
+	}
+
+	// 如果没有现有记录或不是电视剧，创建新记录 - 在移动前处理
+	if mediaRecord == nil {
+		mediaRecord = &database.MediaRecord{
+			FileName:      filepath.Base(nfoPath),
+			Title:         nfo.Title,
+			OriginalTitle: nfo.OriginalTitle,
+			Year:          nfo.Year,
+			Country:       strings.Join(countries, ", "), // 使用获取到的国家信息（可能来自TMDB）
+			Genres:        strings.Join(nfo.Genres, ", "),
+			Actors:        formatActors(nfo.Actors),
+			Category:      category,
+			SourcePath:    mediaDir,
+			TargetPath:    targetMediaPath,
+			ProcessedAt:   time.Now(),
+			Runtime:       nfo.Runtime,
+			Plot:          nfo.Plot,
+			IMDbID:        nfo.IMDbID,
+			TMDbID:        nfo.TMDbID,
+			Season:        nfo.Season,
+			Episode:       nfo.Episode,
+			Director:      nfo.Director,
+			Writer:        nfo.Writer,
+			Rating:        nfo.Rating,
+			Resolution:    resolution,
+			IsComplete:    false, // 默认标记为不完整，后续会更新
+		}
+	} else {
+		// 更新现有记录的信息 - 在移动前处理
+		mediaRecord.FileName = filepath.Base(nfoPath)
+		mediaRecord.OriginalTitle = nfo.OriginalTitle
+		mediaRecord.Year = nfo.Year
+		mediaRecord.Country = strings.Join(countries, ", ")
+		mediaRecord.Genres = strings.Join(nfo.Genres, ", ")
+		mediaRecord.Actors = formatActors(nfo.Actors)
+		mediaRecord.Category = category
+		mediaRecord.TargetPath = targetMediaPath
+		mediaRecord.Runtime = nfo.Runtime
+		mediaRecord.Plot = nfo.Plot
+		mediaRecord.IMDbID = nfo.IMDbID
+		mediaRecord.TMDbID = nfo.TMDbID
+		mediaRecord.Director = nfo.Director
+		mediaRecord.Writer = nfo.Writer
+		mediaRecord.Rating = nfo.Rating
+		mediaRecord.Resolution = resolution
+	}
+
+	// 目标目录已存在同名文件夹
 	if _, err := os.Stat(targetMediaPath); err == nil {
 		// 只有电视剧才进行季数检测和合并
 		if isTVShow {
@@ -246,79 +309,19 @@ func ClassifyAndMove(nfoPath string) error {
 		logging.Info("已将影片 '%s' 移动到 '%s'", mediaName, targetDir)
 	}
 
-	// 从文件名中提取分辨率信息
-	resolution := extractResolutionFromFileName(filepath.Base(nfoPath))
-
-	// 对于电视剧合并季数的情况，需要先获取现有记录
-	var mediaRecord *database.MediaRecord
-
-	// 尝试获取现有媒体记录
-	if isTVShow {
-		var err error
-		mediaRecord, err = getExistingTVShowRecord(nfo.Title, nfo.Year)
-		if err != nil {
-			logging.Error("获取现有电视剧记录失败: %v", err)
-		}
-	}
-
-	// 如果没有现有记录或不是电视剧，创建新记录
-	if mediaRecord == nil {
-		mediaRecord = &database.MediaRecord{
-			FileName:      filepath.Base(nfoPath),
-			Title:         nfo.Title,
-			OriginalTitle: nfo.OriginalTitle,
-			Year:          nfo.Year,
-			Country:       strings.Join(countries, ", "), // 使用获取到的国家信息（可能来自TMDB）
-			Genres:        strings.Join(nfo.Genres, ", "),
-			Actors:        formatActors(nfo.Actors),
-			Category:      category,
-			SourcePath:    mediaDir,
-			TargetPath:    targetMediaPath,
-			ProcessedAt:   time.Now(),
-			Runtime:       nfo.Runtime,
-			Plot:          nfo.Plot,
-			IMDbID:        nfo.IMDbID,
-			TMDbID:        nfo.TMDbID,
-			Season:        nfo.Season,
-			Episode:       nfo.Episode,
-			Director:      nfo.Director,
-			Writer:        nfo.Writer,
-			Rating:        nfo.Rating,
-			Resolution:    resolution,
-			IsComplete:    false, // 默认标记为不完整，后续会更新
-		}
-	} else {
-		// 更新现有记录的信息
-		mediaRecord.FileName = filepath.Base(nfoPath)
-		mediaRecord.OriginalTitle = nfo.OriginalTitle
-		mediaRecord.Year = nfo.Year
-		mediaRecord.Country = strings.Join(countries, ", ")
-		mediaRecord.Genres = strings.Join(nfo.Genres, ", ")
-		mediaRecord.Actors = formatActors(nfo.Actors)
-		mediaRecord.Category = category
-		mediaRecord.TargetPath = targetMediaPath
-		mediaRecord.Runtime = nfo.Runtime
-		mediaRecord.Plot = nfo.Plot
-		mediaRecord.IMDbID = nfo.IMDbID
-		mediaRecord.TMDbID = nfo.TMDbID
-		mediaRecord.Director = nfo.Director
-		mediaRecord.Writer = nfo.Writer
-		mediaRecord.Rating = nfo.Rating
-		mediaRecord.Resolution = resolution
-	}
-
+	// 记录媒体信息到数据库 - 在移动后执行，确保路径正确
 	if err := database.InsertOrUpdateMediaRecord(mediaRecord); err != nil {
 		logging.Error("记录媒体信息到数据库失败: %v", err)
 	}
 
-	// 如果是电视剧，检测缺失的季和剧集
+	// 如果是电视剧，检测缺失的季和剧集 - 在移动后执行，确保路径正确
 	if isTVShow && nfo.TMDbID != "" {
 		if err := DetectMissingSeasonsAndEpisodes(mediaRecord); err != nil {
 			logging.Error("检测缺失季和剧集失败: %v", err)
 		}
 	}
 
-	// 如果是电视剧，检查并报告季数状态
+	// 如果是电视剧，检查并报告季数状态 - 在移动后执行，确保路径正确
 	if isTVShow && nfo.TMDbID != "" {
 		if err := ReportSeasonStatus(nfo.Title, nfo.TMDbID, targetMediaPath); err != nil {
 			logging.Error("报告剧集季数状态失败: %v", err)

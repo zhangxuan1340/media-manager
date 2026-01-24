@@ -279,7 +279,7 @@ func InsertOrUpdateMediaRecord(record *MediaRecord) error {
 
 	// 检查是否已存在相同的媒体记录
 	var existingID int
-	var existingVersion int
+	var existingVersion *int // 使用指针类型，允许NULL值
 
 	// 对于电影，使用标题、年份和分辨率作为唯一标识
 	// 对于电视剧，使用标题、年份、季数和分辨率作为唯一标识
@@ -349,6 +349,12 @@ func InsertOrUpdateMediaRecord(record *MediaRecord) error {
 		}
 	} else {
 		// 记录存在，执行更新
+		// 处理可能为NULL的version字段
+		newVersion := 1
+		if existingVersion != nil {
+			newVersion = *existingVersion + 1
+		}
+
 		updateSQL := `
 		UPDATE media_records SET 
 			file_name = ?, 
@@ -392,7 +398,7 @@ func InsertOrUpdateMediaRecord(record *MediaRecord) error {
 			record.Writer,
 			record.Rating,
 			record.Resolution,
-			existingVersion+1, // 版本号递增
+			newVersion, // 使用计算后的版本号
 			record.IsComplete,
 			existingID,
 		)
