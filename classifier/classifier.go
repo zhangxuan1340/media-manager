@@ -450,11 +450,8 @@ func DetermineCategory(countries []string, isTVShow bool, genres []string) (stri
 		return CategoryEnMovie, nil
 	}
 
-	// 最后处理其他国家（如果没有国家信息）
-	if isTVShow {
-		return CategoryEnShow, nil
-	}
-	return CategoryEnMovie, nil
+	// 没有国家信息，返回错误
+	return "", fmt.Errorf("没有有效的国家信息")
 }
 
 // MoveDirectory处理目录移动，支持跨设备移动
