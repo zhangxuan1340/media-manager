@@ -372,6 +372,7 @@ func DetermineCategory(countries []string, isTVShow bool, genres []string) (stri
 		varietyKeywords := []string{
 			"综艺节目", "variety",
 			"真人秀", "reality",
+			"真人节目", "reality show",
 			"脱口秀", "talk show",
 			"游戏节目", "game-show",
 			"竞赛节目", "competition",
@@ -405,12 +406,23 @@ func DetermineCategory(countries []string, isTVShow bool, genres []string) (stri
 		return CategoryDmMovie, nil
 	}
 
-	// 处理多国家情况
-	var hasDomestic bool
-	var hasJapanKorea bool
-
+	// 处理多国家情况：按照国家顺序优先判断第一个国家
 	for _, country := range countries {
 		countryLower := strings.ToLower(country)
+
+		// 检查是否为日本或韩国
+		if strings.Contains(countryLower, "日本") ||
+			strings.Contains(countryLower, "日本国") ||
+			strings.Contains(countryLower, "japan") ||
+			strings.Contains(countryLower, "韩国") ||
+			strings.Contains(countryLower, "大韩民国") ||
+			strings.Contains(countryLower, "korea") ||
+			strings.Contains(countryLower, "south korea") {
+			if isTVShow {
+				return CategoryJpKrShow, nil
+			}
+			return CategoryJpKrMovie, nil
+		}
 
 		// 检查是否为国内（中国大陆、香港、台湾）
 		if strings.Contains(countryLower, "中国大陆") ||
@@ -425,39 +437,20 @@ func DetermineCategory(countries []string, isTVShow bool, genres []string) (stri
 			strings.Contains(countryLower, "china") ||
 			strings.Contains(countryLower, "hong kong") ||
 			strings.Contains(countryLower, "taiwan") {
-			hasDomestic = true
+			if isTVShow {
+				return CategoryCnShow, nil
+			}
+			return CategoryCnMovie, nil
 		}
 
-		// 检查是否为日本或韩国
-		if strings.Contains(countryLower, "日本") ||
-			strings.Contains(countryLower, "日本国") ||
-			strings.Contains(countryLower, "japan") ||
-			strings.Contains(countryLower, "韩国") ||
-			strings.Contains(countryLower, "大韩民国") ||
-			strings.Contains(countryLower, "korea") ||
-			strings.Contains(countryLower, "south korea") {
-			hasJapanKorea = true
-		}
-	}
-
-	// 优先处理日本/韩国
-	// 解决多国家情况：如果同时包含中国和日韩，优先归类到日韩
-	if hasJapanKorea {
+		// 如果不是日韩或中国，归类为其他国家
 		if isTVShow {
-			return CategoryJpKrShow, nil
+			return CategoryEnShow, nil
 		}
-		return CategoryJpKrMovie, nil
+		return CategoryEnMovie, nil
 	}
 
-	// 其次处理国内
-	if hasDomestic {
-		if isTVShow {
-			return CategoryCnShow, nil
-		}
-		return CategoryCnMovie, nil
-	}
-
-	// 最后处理其他国家
+	// 最后处理其他国家（如果没有国家信息）
 	if isTVShow {
 		return CategoryEnShow, nil
 	}
